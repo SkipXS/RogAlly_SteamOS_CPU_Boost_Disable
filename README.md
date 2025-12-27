@@ -1,0 +1,1 @@
+# RogAlly_SteamOS_CPU_Boost_Disable

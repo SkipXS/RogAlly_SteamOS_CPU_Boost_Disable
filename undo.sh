@@ -1,34 +1,42 @@
 #!/bin/bash
-# UNDO-SCRIPT für setup_epp_balance_power.sh
+# UNDO für das alte "Balance Power" Script
 
-echo "Suche und entferne altes 'Balance Power' Setup..."
+GREEN='\033[0;32m'
+NC='\033[0m'
 
-# 1. Dienst stoppen und deaktivieren
-# Wir prüfen auf den wahrscheinlichsten Namen, den das GitHub-Script erstellt hat
-SERVICE_NAME="set_epp_balance_power.service"
+# 1. Root Check
+if [ "$EUID" -ne 0 ]; then
+  echo "Bitte mit sudo ausführen."
+  exit 1
+fi
+
+echo -e "${GREEN}=== Entferne altes Setup ===${NC}"
+
+# 2. Filesystem entsperren (Wichtig bei SteamOS/Bazzite)
+steamos-readonly disable
+
+# 3. Dienst stoppen und deaktivieren
+SERVICE_NAME="rog-ally-epp-balance.service"
+FILE_PATH="/etc/systemd/system/$SERVICE_NAME"
 
 if systemctl list-units --full -all | grep -Fq "$SERVICE_NAME"; then
-    echo "Dienst $SERVICE_NAME gefunden. Stoppe ihn..."
-    sudo systemctl stop "$SERVICE_NAME"
-    sudo systemctl disable "$SERVICE_NAME"
-    
-    # 2. Service-Datei löschen
-    echo "Lösche Service-Datei..."
-    sudo rm "/etc/systemd/system/$SERVICE_NAME"
-else
-    echo "Service '$SERVICE_NAME' nicht aktiv oder nicht gefunden."
+    echo "Stoppe Service..."
+    systemctl stop "$SERVICE_NAME"
+    systemctl disable "$SERVICE_NAME"
 fi
 
-# 3. Das eigentliche Skript löschen
-SCRIPT_PATH="/usr/local/bin/set_epp_balance_power.sh"
-if [ -f "$SCRIPT_PATH" ]; then
-    echo "Lösche Skript-Datei unter $SCRIPT_PATH..."
-    sudo rm "$SCRIPT_PATH"
+# 4. Datei löschen
+if [ -f "$FILE_PATH" ]; then
+    echo "Lösche Service-Datei: $FILE_PATH"
+    rm "$FILE_PATH"
 else
-    echo "Kein Skript unter $SCRIPT_PATH gefunden."
+    echo "Service-Datei war bereits weg."
 fi
 
-# 4. Systemd neu laden
-sudo systemctl daemon-reload
+# 5. Systemd neu laden
+systemctl daemon-reload
 
-echo "Bereinigung abgeschlossen."
+# 6. Filesystem wieder sperren
+steamos-readonly enable
+
+echo -e "${GREEN}=== Fertig! Altes Setup ist gelöscht. ===${NC}"

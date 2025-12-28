@@ -52,4 +52,6 @@ echo -e "\n${GREEN}=== Überprüfung ===${NC}"
 echo "Boost-Status (Soll: 0):"
 cat /sys/devices/system/cpu/cpufreq/boost
 echo ""
+cat cat /sys/devices/system/cpu/cpu*/cpufreq/boost
+echo ""
 echo -e "${GREEN}=== Fertig! Boost ist deaktiviert. ===${NC}"

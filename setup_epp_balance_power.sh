@@ -48,15 +48,21 @@ systemctl restart rog-ally-epp-balance.service
 echo "Sperre Dateisystem..."
 steamos-readonly enable
 
-# 6. Verifikation aller Cores
+# 6. Verifikation aller Cores (Korrigierte Version)
 echo -e "\n${GREEN}=== Überprüfung aller CPU-Kerne ===${NC}"
 echo "Soll: balance_power"
 echo "Ist:"
 
 # Wir warten kurz, um sicherzugehen, dass der Service durchgelaufen ist
-sleep 1
+sleep 2
 
-# Zeigt den Wert für jeden Kern einzeln an (cpu0 bis cpu7)
-grep . /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference | awk -F/ '{print $6 ": " $9}'
+# Robuste Schleife statt komplexem awk
+for file in /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference; do
+    # Extrahiere den CPU-Namen (z.B. cpu0) aus dem Pfad
+    cpu_name=$(echo "$file" | grep -o 'cpu[0-9]\+')
+    # Lese den tatsächlichen Wert aus der Datei
+    val=$(cat "$file")
+    echo "$cpu_name: $val"
+done | sort -V  # sort -V sortiert "natürlich" (cpu2 kommt vor cpu10)
 
 echo -e "${GREEN}=== Fertig! ===${NC}"

@@ -24,7 +24,7 @@ steamos-readonly disable
 echo "Erstelle Service unter $SERVICE_FILE..."
 cat <<EOF > $SERVICE_FILE
 [Unit]
-Description=Disable CPU Boost (Keep EPP untouched)
+Description=Disable CPU Boost
 After=multi-user.target systemd-modules-load.service
 
 [Service]

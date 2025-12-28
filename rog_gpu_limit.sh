@@ -1,11 +1,8 @@
 #!/bin/bash
-# SETUP: GPU Max Frequency Limit (1800 MHz Sweet Spot)
+# FINAL SETUP: GPU Limit 1800 MHz (Persistent)
 
 GREEN='\033[0;32m'
 NC='\033[0m'
-
-# Ziel: 1800 MHz
-MAX_GPU_FREQ=1800
 
 # 1. Root Check
 if [ "$EUID" -ne 0 ]; then
@@ -13,42 +10,46 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-echo -e "${GREEN}=== Setup: GPU Limit auf ${MAX_GPU_FREQ} MHz ===${NC}"
+echo -e "${GREEN}=== Setup: GPU Limit 1800 MHz (Auto-Start) ===${NC}"
 
 steamos-readonly disable
 
 SERVICE_FILE="/etc/systemd/system/rog-gpu-limit.service"
 SCRIPT_PATH="/usr/local/bin/rog_gpu_limit.sh"
+GPU_PATH="/sys/class/drm/card0/device"
 
-# 2. Manager-Skript erstellen
+# 2. Das Skript (Jetzt inkl. 'manual' Modus)
 echo "Erstelle Skript unter $SCRIPT_PATH..."
 cat <<EOF > $SCRIPT_PATH
 #!/bin/bash
-sleep 8 
-# Wir warten etwas länger (8s), damit der GPU-Treiber sicher geladen ist
+# Wir warten etwas, bis der Treiber bereit ist
+sleep 10
 
-GPU_PATH="/sys/class/drm/card0/device/pp_od_clk_voltage"
+# 1. In den manuellen Modus wechseln (WICHTIG! Sonst kommt "Invalid Argument")
+if [ -f "$GPU_PATH/power_dpm_force_performance_level" ]; then
+    echo "manual" > $GPU_PATH/power_dpm_force_performance_level
+fi
 
-if [ -f "\$GPU_PATH" ]; then
-    echo "Setze GPU Limit..."
-    # 's 1 1800' bedeutet: Setze (s) Level 1 (Maximaltakt) auf 1800 MHz
-    echo "s 1 $MAX_GPU_FREQ" > \$GPU_PATH
-    # 'c' bedeutet: Commit (Änderungen anwenden)
-    echo "c" > \$GPU_PATH
-    echo "GPU Limit gesetzt auf $MAX_GPU_FREQ MHz."
+# 2. Limit setzen
+if [ -f "$GPU_PATH/pp_od_clk_voltage" ]; then
+    # Setze Limit auf 1800 MHz
+    echo "s 1 1800" > $GPU_PATH/pp_od_clk_voltage
+    # Bestätigen
+    echo "c" > $GPU_PATH/pp_od_clk_voltage
+    echo "GPU Limit erfolgreich auf 1800 MHz gesetzt."
 else
-    echo "FEHLER: GPU-Pfad nicht gefunden. Treiber geladen?"
+    echo "Fehler: Pfad nicht gefunden."
 fi
 EOF
 
 chmod +x $SCRIPT_PATH
 
-# 3. Service erstellen
-echo "Erstelle Service $SERVICE_FILE..."
+# 3. Service Update
+echo "Aktualisiere Service..."
 cat <<EOF > $SERVICE_FILE
 [Unit]
-Description=Set ROG Ally GPU Max Frequency (Sweet Spot)
-After=multi-user.target systemd-modules-load.service graphical.target
+Description=Set ROG Ally GPU Limit to 1800 MHz
+After=multi-user.target graphical.target
 
 [Service]
 Type=oneshot
@@ -59,20 +60,11 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 EOF
 
-# 4. Aktivieren
+# 4. Neustart des Services
 systemctl daemon-reload
 systemctl enable rog-gpu-limit.service
 systemctl restart rog-gpu-limit.service
 
 steamos-readonly enable
 
-# 5. Check
-echo -e "\n${GREEN}=== Check (Kann leer sein, wenn keine Last anliegt) ===${NC}"
-# Wir lesen die aktuellen Grenzen aus
-if [ -f /sys/class/drm/card0/device/pp_od_clk_voltage ]; then
-    cat /sys/class/drm/card0/device/pp_od_clk_voltage
-else
-    echo "Konnte Datei nicht lesen (Permission oder Pfad)."
-fi
-
-echo -e "${GREEN}=== Fertig! GPU geht nun nicht mehr über 1800 MHz. ===${NC}"
+echo -e "${GREEN}=== Fertig! Das GPU-Limit überlebt jetzt auch Neustarts. ===${NC}"
